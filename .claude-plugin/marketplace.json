@@ -1,6 +1,9 @@
 {
   "name": "scratchpad",
   "owner": { "name": "xdannyrobertsx" },
-  "description": "Claude Code mods: a live scratchpad sidebar",
-  "plugins": [{ "name": "scratchpad", "source": "./mods/scratchpad" }]
+  "description": "Claude Code mods: a live scratchpad sidebar, colored markers on prompts and replies",
+  "plugins": [
+    { "name": "scratchpad", "source": "./mods/scratchpad" },
+    { "name": "turn-markers", "source": "./mods/turn-markers" }
+  ]
 }

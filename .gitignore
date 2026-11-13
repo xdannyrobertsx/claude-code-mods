@@ -5,6 +5,7 @@
 # Written by Claude Code on each load
 .claude-plugin/types/
 plugins/*/.claude-plugin/types/
+mods/*/.claude-plugin/types/
 
 .DS_Store
 *.log
