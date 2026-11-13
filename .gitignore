@@ -1,0 +1,10 @@
+# Local to this machine
+.claude/settings.local.json
+.claude/memory/
+
+# Written by Claude Code on each load
+.claude-plugin/types/
+plugins/*/.claude-plugin/types/
+
+.DS_Store
+*.log

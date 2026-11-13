@@ -1,0 +1,6 @@
+{
+  "name": "scratchpad",
+  "owner": { "name": "xdannyrobertsx" },
+  "description": "Claude Code mods: a live scratchpad sidebar",
+  "plugins": [{ "name": "scratchpad", "source": "./mods/scratchpad" }]
+}
