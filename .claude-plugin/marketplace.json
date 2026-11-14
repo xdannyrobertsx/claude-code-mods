@@ -1,5 +1,5 @@
 {
-  "name": "scratchpad",
+  "name": "claude-code-mods",
   "owner": { "name": "xdannyrobertsx" },
   "description": "Claude Code mods: a live scratchpad sidebar, colored markers on prompts and replies",
   "plugins": [
