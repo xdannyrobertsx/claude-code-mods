@@ -1,32 +1,39 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, RenderSurface } from 'claude-code'
+import type { EngineInterface, FsEntry, Register, RenderSurface } from 'claude-code'
 
-import type { Entry, Snapshot } from '../types'
+import type { Entry } from '../types'
 
 const PANE = 'scratchpad'
 const REFRESH_MS = 2000
 const MAX_ENTRIES = 2000
 const WIDTH_SHARE = 0.2
+const INDENT = '  '
+const FOLDER_CLOSED = '📁'
+const FOLDER_OPEN = '📂'
+const TMP_DIRS = ['/private/tmp', '/tmp']
 
-const snapshot = atom({ plugin: 'scratchpad', key: 'snapshot' } as const, {
-  root: null,
-  entries: [],
-} as Snapshot)
+const root = atom({ plugin: 'scratchpad', key: 'root' } as const, null as string | null)
+const entries = atom({ plugin: 'scratchpad', key: 'entries' } as const, [] as Entry[])
 const collapsed = atom({ plugin: 'scratchpad', key: 'collapsed' } as const, [] as string[])
 const isOpen = atom({ plugin: 'scratchpad', key: 'isOpen' } as const, false)
 
-// The API has no scratchpad path, so rebuild the harness's layout:
+const toProjectSlug = (dir: string) => dir.replace(/[^a-zA-Z0-9]/g, '-')
+
+// A mod can't be told the scratchpad path: $ doesn't expose it, and Claude Code's guard
+// (cc-plugin-sec-default) bypasses a mod's classic hooks, the only events carrying scratchpad_dir.
+// So this rebuilds the harness's layout:
 // <tmp>/claude-<uid>/<project path, non-alphanumerics as dashes>/<session id>/scratchpad
 const findScratchpad = async ($: EngineInterface): Promise<string | null> => {
-  const [id, root, cwd] = await Promise.all([$.session.id(), $.session.root(), $.session.cwd()])
-  const slugs = [...new Set([root, cwd])].map(dir => dir.replace(/[^a-zA-Z0-9]/g, '-'))
+  const [id, projectRoot, cwd] = await Promise.all([$.session.id(), $.session.root(), $.session.cwd()])
+  const slugs = [...new Set([projectRoot, cwd])].map(toProjectSlug)
 
-  for (const tmp of ['/private/tmp', '/tmp']) {
-    const tops = await $.fs.list(tmp).catch(() => [])
-    for (const top of tops) {
-      if (!top.name.startsWith('claude-')) continue
+  for (const tmp of TMP_DIRS) {
+    const tmpEntries = await $.fs.list(tmp).catch(() => [])
+    const userDirs = tmpEntries.filter(child => child.name.startsWith('claude-'))
+
+    for (const userDir of userDirs) {
       for (const slug of slugs) {
-        const path = `${tmp}/${top.name}/${slug}/${id}/scratchpad`
+        const path = `${tmp}/${userDir.name}/${slug}/${id}/scratchpad`
         if (await $.fs.exists(path)) return path
       }
     }
@@ -35,51 +42,62 @@ const findScratchpad = async ($: EngineInterface): Promise<string | null> => {
   return null
 }
 
-// Folders first, then names; the whole tree, so collapsing is a view filter.
+const locateRoot = async ($: EngineInterface) => {
+  const known = await read($, root)
+  if (known !== null) return known
+
+  const found = await findScratchpad($)
+  if (found !== null) await update($, root, () => found)
+  return found
+}
+
+const foldersFirstThenByName = (a: FsEntry, b: FsEntry) =>
+  Number(b.kind === 'dir') - Number(a.kind === 'dir') || a.name.localeCompare(b.name)
+
 const walk = async ($: EngineInterface, dir: string, depth: number, out: Entry[]) => {
-  const list = await $.fs.list(dir).catch(() => [])
-  const sorted = [...list].sort(
-    (a, b) => Number(b.kind === 'dir') - Number(a.kind === 'dir') || a.name.localeCompare(b.name),
-  )
-  for (const one of sorted) {
+  const children = await $.fs.list(dir).catch(() => [])
+
+  for (const child of [...children].sort(foldersFirstThenByName)) {
     if (out.length >= MAX_ENTRIES) return
-    const path = `${dir}/${one.name}`
-    out.push({ path, name: one.name, kind: one.kind, depth })
-    if (one.kind === 'dir') await walk($, path, depth + 1, out)
+    const path = `${dir}/${child.name}`
+    out.push({ path, name: child.name, kind: child.kind, depth })
+    if (child.kind === 'dir') await walk($, path, depth + 1, out)
   }
 }
 
 const refresh = async ($: EngineInterface) => {
-  const known = await read($, snapshot)
-  const root = known.root ?? (await findScratchpad($))
-  const entries: Entry[] = []
-  if (root !== null) await walk($, root, 0, entries)
+  const dir = await locateRoot($)
+  if (dir === null) return
 
-  const next: Snapshot = { root, entries }
-  // Only write on change, so an idle tree isn't redrawn every tick.
-  if (JSON.stringify(next) !== JSON.stringify(known)) await update($, snapshot, () => next)
+  const next: Entry[] = []
+  await walk($, dir, 0, next)
+  const hasChanged = JSON.stringify(next) !== JSON.stringify(await read($, entries))
+  if (hasChanged) await update($, entries, () => next)
 }
 
 const isPaneUp = async ($: EngineInterface) => (await $.ui.panes()).some(pane => pane.id === PANE)
 
-// `columns` is the terminal width the button was last drawn at; the sidebar
-// asks for WIDTH_SHARE of it (left to the engine's default when unmeasured).
-const toggle = async ($: EngineInterface, columns: number | undefined) => {
-  if (await isPaneUp($)) {
-    // Our own close doesn't pass back through our ui.close hook, so clear it here.
-    await $.ui.close({ id: PANE })
-    await update($, isOpen, () => false)
-    return
-  }
+const sidebarWidth = (terminalColumns: number | undefined) =>
+  terminalColumns === undefined ? {} : { columns: Math.max(1, Math.round(terminalColumns * WIDTH_SHARE)) }
+
+const openSidebar = async ($: EngineInterface, terminalColumns: number | undefined) => {
   await refresh($)
-  const width = columns === undefined ? undefined : Math.max(1, Math.round(columns * WIDTH_SHARE))
-  await $.ui.open({ id: PANE, title: 'Scratchpad', ...(width === undefined ? {} : { columns: width }) })
+  await $.ui.open({ id: PANE, title: 'Scratchpad', ...sidebarWidth(terminalColumns) })
   await update($, isOpen, () => true)
 }
 
-const toggleDir = ($: EngineInterface, path: string) =>
-  update($, collapsed, list =>
-    list.includes(path) ? list.filter(one => one !== path) : [...list, path],
+// Closing our own pane doesn't run our ui.close hook, so isOpen is cleared here as well.
+const closeSidebar = async ($: EngineInterface) => {
+  await $.ui.close({ id: PANE })
+  await update($, isOpen, () => false)
+}
+
+const toggleSidebar = async ($: EngineInterface, terminalColumns: number | undefined) =>
+  (await isPaneUp($)) ? closeSidebar($) : openSidebar($, terminalColumns)
+
+const toggleCollapsed = ($: EngineInterface, path: string) =>
+  update($, collapsed, paths =>
+    paths.includes(path) ? paths.filter(one => one !== path) : [...paths, path],
   )
 
 const copyPath = async ($: EngineInterface, entry: Entry, surface: RenderSurface) => {
@@ -87,10 +105,21 @@ const copyPath = async ($: EngineInterface, entry: Entry, surface: RenderSurface
   $.ui.toast(copied.isCopied ? `Copied path of ${entry.name}` : `Couldn't copy: ${copied.reason}`)
 }
 
+const isInsideCollapsed = (entry: Entry, collapsedDirs: string[]) =>
+  collapsedDirs.some(dir => entry.path.startsWith(`${dir}/`))
+
+const folderMark = (entry: Entry, collapsedDirs: string[]) => {
+  if (entry.kind !== 'dir') return INDENT
+  return collapsedDirs.includes(entry.path) ? '▸ ' : '▾ '
+}
+
+const entryLabel = (entry: Entry, collapsedDirs: string[]) => {
+  const suffix = entry.kind === 'dir' ? '/' : ''
+  return `${INDENT.repeat(entry.depth)}${folderMark(entry, collapsedDirs)}${entry.name}${suffix}`
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
-    // Poll only while the pane is up; the timer is dropped on reload and
-    // session.start runs again then.
     $.clock.every(REFRESH_MS, () => {
       void isPaneUp($).then(isUp => (isUp ? refresh($) : undefined))
     })
@@ -108,26 +137,27 @@ export const register: Register = on => {
   on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
     if (e.props.hasSurvey) return next(e)
 
-    const { Box, Button } = $.ui.resolve(e)
+    const { Box, Button, Text } = $.ui.resolve(e)
     const open = await read($, isOpen)
+    const label = open ? 'Hide scratchpad' : 'Scratchpad'
 
     return (
       <Box>
-        <Button
-          key="toggle"
-          label={open ? 'Hide scratchpad' : 'Scratchpad'}
-          onPress={() => toggle($, e.viewport?.columns)}
-        />
+        <Button key="toggle" label={label} onPress={() => toggleSidebar($, e.viewport?.columns)}>
+          <Text>
+            {open ? FOLDER_OPEN : FOLDER_CLOSED} {label}
+          </Text>
+        </Button>
       </Box>
     )
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
-    const { root, entries } = await read($, snapshot)
-    const shut = await read($, collapsed)
+    const dir = await read($, root)
+    const collapsedDirs = await read($, collapsed)
 
-    if (root === null) {
+    if (dir === null) {
       return (
         <Box flexDirection="column">
           <Text dimColor>Couldn't find this session's scratchpad.</Text>
@@ -135,25 +165,22 @@ export const register: Register = on => {
       )
     }
 
-    const visible = entries.filter(entry => !shut.some(dir => entry.path.startsWith(dir + '/')))
+    const visible = (await read($, entries)).filter(entry => !isInsideCollapsed(entry, collapsedDirs))
 
     return (
       <Box flexDirection="column">
         {visible.length === 0 && <Text dimColor>Empty.</Text>}
         {visible.map(entry => {
           const isDir = entry.kind === 'dir'
-          const mark = isDir ? (shut.includes(entry.path) ? '▸ ' : '▾ ') : '  '
-          const label = `${'  '.repeat(entry.depth)}${mark}${entry.name}${isDir ? '/' : ''}`
 
           return (
             <Button
               key={entry.path}
               plain
-              onPress={press => (isDir ? toggleDir($, entry.path) : copyPath($, entry, press.surface))}
+              onPress={press => (isDir ? toggleCollapsed($, entry.path) : copyPath($, entry, press.surface))}
             >
-              {/* Claude Code's own look: folders bold, dotfiles dim, the rest plain. */}
               <Text bold={isDir} dimColor={entry.name.startsWith('.')} wrap="truncate-end">
-                {label}
+                {entryLabel(entry, collapsedDirs)}
               </Text>
             </Button>
           )

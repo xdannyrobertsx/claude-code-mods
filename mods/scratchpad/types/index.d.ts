@@ -5,10 +5,8 @@ export type Entry = {
   depth: number
 }
 
-export type Snapshot = { root: string | null; entries: Entry[] }
-
 declare module 'claude-code' {
   interface PluginState {
-    scratchpad: { snapshot: Snapshot; collapsed: string[]; isOpen: boolean }
+    scratchpad: { root: string | null; entries: Entry[]; collapsed: string[]; isOpen: boolean }
   }
 }
