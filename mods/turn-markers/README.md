@@ -1,38 +1,52 @@
 # turn-markers
 
-Verbose Claude Code sessions bury the conversation under tool calls and their output.
-This mod draws a colored, full-width rule above each prompt you type and above the start of each Claude reply,
-so you can scroll back and spot where you asked something and where Claude answered.
+busy claude code sessions bury the actual convo
+under tool calls and all their output. this mod
+draws a colored rule above each prompt u type and
+above the start of each claude reply, so u can
+scroll back and spot where u asked something and
+where claude answered ⋆｡°✩
 
 ```
-▶ you ────────────────────────────────────   (blue, follows your theme)
+▶ you ────────────────────────────────────   (blue, #a6dbff)
 > your prompt
 
-✻ claude ─────────────────────────────────   (Claude orange)
-● Claude's reply
+✻ claude ─────────────────────────────────   (pink, #ed8796)
+● claude's reply
 ```
 
-When a reply opens with a tool call instead of text, the claude rule goes above that tool call,
-so the start of every reply is marked either way.
-Tool calls, their output and thinking are otherwise untouched.
+when a reply opens with a tool call instead of
+text, the claude rule goes above that tool call,
+so every reply's start gets marked either way hehe
+tool calls, their output and thinking are
+otherwise left untouched.
 
-Only your own prompts are marked: typed at the terminal, sent over Remote Control or the SDK,
-pinged from Slack, or submitted by a plugin as your own words (voice input, say).
-Background task notifications, scheduled prompts and messages from other agents are left as they were.
+only ur own prompts get a rule: typed at the
+terminal, sent over remote control or the sdk,
+pinged from slack, or sent by a plugin as ur own
+words (like voice input). background task
+notifications, scheduled prompts and messages from
+other agents stay as they were.
 
-## Install
+## install
 
-At the prompt of a Claude Code session:
+at the prompt of a claude code session:
 
 ```
 /plugin install turn-markers --marketplace xdannyrobertsx/claude-code-mods
 ```
 
-## Customize
+## customize
 
-The glyphs, labels and colors are the `YOU` and `CLAUDE` constants at the top of `hooks/register.tsx`.
-Colors take a Claude Code theme key (`suggestion`, `claude`, `success`, …) or a hex value like `#5fd7ff`.
+the glyphs, labels and colors are the `YOU` and
+`CLAUDE` constants at the top of
+`hooks/register.tsx`. the colors come from the
+repo's palette in `shared/colors.ts` (copied into
+`hooks/shared/`). a claude code theme key
+(`suggestion`, `claude`, `success`, …) works too,
+and it follows ur light or dark theme ^_^
 
-## Develop
+## develop
 
-`claude plugin test mods/turn-markers` runs the tests in `tests/`.
+`claude plugin test mods/turn-markers` runs the
+tests in `tests/` ✦

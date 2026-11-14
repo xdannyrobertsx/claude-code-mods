@@ -1,12 +1,32 @@
 import { expect, test } from 'claude-code/testing'
-import type { On, PromptOrigin, TurnStepChunk } from 'claude-code'
+import type { Engine, Mounted } from 'claude-code/testing'
+import type { On, PromptOrigin, RenderSurface, TurnStepChunk } from 'claude-code'
 
 const RULE_CLAUDE = /✻ claude ─/
 const RULE_YOU = /▶ you ─/
 const VIEWPORT = { columns: 100, rows: 40 }
+const STEP = { turnId: 'turn-1', index: 0, model: 'opus', messageCount: 1 }
 
-// Stands in for the engine beneath the plugin: draws each row as one Text, accepts every
-// prompt, and streams the given chunks as the model's response.
+const TOOL_FIRST: TurnStepChunk[] = [
+  { kind: 'tool', index: 0, id: 'tool-1', name: 'Read', ref: 1 },
+  { kind: 'tool', index: 1, id: 'tool-2', name: 'Bash', ref: 2 },
+]
+const TEXT_FIRST: TurnStepChunk[] = [
+  { kind: 'text', index: 0, text: 'Looking now.', ref: 1 },
+  { kind: 'tool', index: 1, id: 'tool-1', name: 'Read', ref: 2 },
+]
+
+const PERSON_ORIGINS: PromptOrigin[] = [
+  { kind: 'composer' },
+  { kind: 'slack-ping' },
+  { kind: 'plugin', name: 'voice', asUser: true },
+]
+const OTHER_ORIGINS: PromptOrigin[] = [
+  { kind: 'task-notification' },
+  { kind: 'plugin', name: 'voice' },
+  { kind: 'peer' },
+]
+
 const fakeEngine = (on: On, chunks: TurnStepChunk[]) => {
   on('ui.render', ($, e) => {
     const { Text } = $.ui.resolve(e)
@@ -26,99 +46,80 @@ const fakeEngine = (on: On, chunks: TurnStepChunk[]) => {
   })
 }
 
-const STEP = { turnId: 'turn-1', index: 0, model: 'opus', messageCount: 1 }
-
-const prompt = (origin: PromptOrigin) => ({
-  plugin: 'turn-markers',
-  component: 'UserMessage' as const,
-  requestId: 'msg-1',
-  viewport: VIEWPORT,
-  props: { text: 'hello', origin, isExpanded: false },
-})
-
-const toolRow = (id: string) => ({
-  plugin: 'turn-markers',
-  component: 'ToolUse' as const,
-  requestId: id,
-  viewport: VIEWPORT,
-  props: { tool_use_id: id, tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
-})
-
 const drain = async (stream: AsyncIterable<unknown>) => {
-  for await (const _ of stream) {
-    // the stream's chunks are the engine's; only what the mod records matters here
-  }
+  for await (const _ of stream) {}
 }
+
+const runTurn = async ($: Engine, origin: PromptOrigin) => {
+  await $.prompt.submit({ text: 'hi', wait: false, origin })
+  await drain($.turn.step(STEP))
+}
+
+const mountPrompt = ($: Engine, surface: RenderSurface, origin: PromptOrigin) =>
+  $.ui.mount({
+    plugin: 'turn-markers',
+    surface,
+    component: 'UserMessage',
+    requestId: 'msg-1',
+    viewport: VIEWPORT,
+    props: { text: 'hello', origin, isExpanded: false },
+  })
+
+const mountToolRow = ($: Engine, surface: RenderSurface, id: string) =>
+  $.ui.mount({
+    plugin: 'turn-markers',
+    surface,
+    component: 'ToolUse',
+    requestId: id,
+    viewport: VIEWPORT,
+    props: { tool_use_id: id, tool: 'Read', input: {}, isRunning: false, isErrored: false, isInterrupted: false },
+  })
+
+const findText = async (ui: Pick<Mounted, 'find'>, text: RegExp) =>
+  ui.find({ type: 'Text', text })
 
 for (const surface of ['terminal', 'desktop'] as const) {
   test(`a reply that opens with a tool call marks that call (${surface})`, async ($, on) => {
-    fakeEngine(on, [
-      { kind: 'tool', index: 0, id: 'tool-1', name: 'Read', ref: 1 },
-      { kind: 'tool', index: 1, id: 'tool-2', name: 'Bash', ref: 2 },
-    ])
+    fakeEngine(on, TOOL_FIRST)
+    await runTurn($, { kind: 'composer' })
+    expect(await findText(await mountToolRow($, surface, 'tool-1'), RULE_CLAUDE)).toBeTruthy()
+  })
 
-    await $.prompt.submit({ text: 'hi', wait: false, origin: { kind: 'composer' } })
-    await drain($.turn.step(STEP))
+  test(`a marked tool call keeps the engine's row under the rule (${surface})`, async ($, on) => {
+    fakeEngine(on, TOOL_FIRST)
+    await runTurn($, { kind: 'composer' })
+    expect(await findText(await mountToolRow($, surface, 'tool-1'), /engine row/)).toBeTruthy()
+  })
 
-    const first = await $.ui.mount({ ...toolRow('tool-1'), surface })
-    expect(await first.find({ type: 'Text', text: RULE_CLAUDE })).toBeTruthy()
-    expect(await first.find({ type: 'Text', text: /engine row/ })).toBeTruthy()
-    await first.unmount()
-
-    const second = await $.ui.mount({ ...toolRow('tool-2'), surface })
-    expect(await second.find({ type: 'Text', text: RULE_CLAUDE })).toBeFalsy()
-    await second.unmount()
+  test(`only a reply's first tool call is marked (${surface})`, async ($, on) => {
+    fakeEngine(on, TOOL_FIRST)
+    await runTurn($, { kind: 'composer' })
+    expect(await findText(await mountToolRow($, surface, 'tool-2'), RULE_CLAUDE)).toBeFalsy()
   })
 
   test(`a reply that opens with text marks no tool call (${surface})`, async ($, on) => {
-    fakeEngine(on, [
-      { kind: 'text', index: 0, text: 'Looking now.', ref: 1 },
-      { kind: 'tool', index: 1, id: 'tool-1', name: 'Read', ref: 2 },
-    ])
-
-    await $.prompt.submit({ text: 'hi', wait: false, origin: { kind: 'composer' } })
-    await drain($.turn.step(STEP))
-
-    const row = await $.ui.mount({ ...toolRow('tool-1'), surface })
-    expect(await row.find({ type: 'Text', text: RULE_CLAUDE })).toBeFalsy()
-    await row.unmount()
+    fakeEngine(on, TEXT_FIRST)
+    await runTurn($, { kind: 'composer' })
+    expect(await findText(await mountToolRow($, surface, 'tool-1'), RULE_CLAUDE)).toBeFalsy()
   })
 
   test(`a turn no person started marks no tool call (${surface})`, async ($, on) => {
-    fakeEngine(on, [{ kind: 'tool', index: 0, id: 'tool-1', name: 'Read', ref: 1 }])
-
-    await $.prompt.submit({ text: 'done', wait: false, origin: { kind: 'task-notification' } })
-    await drain($.turn.step(STEP))
-
-    const row = await $.ui.mount({ ...toolRow('tool-1'), surface })
-    expect(await row.find({ type: 'Text', text: RULE_CLAUDE })).toBeFalsy()
-    await row.unmount()
+    fakeEngine(on, TOOL_FIRST)
+    await runTurn($, { kind: 'task-notification' })
+    expect(await findText(await mountToolRow($, surface, 'tool-1'), RULE_CLAUDE)).toBeFalsy()
   })
 
-  test(`the person's prompts are marked, other senders' are not (${surface})`, async ($, on) => {
-    fakeEngine(on, [])
+  for (const origin of PERSON_ORIGINS) {
+    test(`a prompt from ${JSON.stringify(origin)} is marked (${surface})`, async ($, on) => {
+      fakeEngine(on, [])
+      expect(await findText(await mountPrompt($, surface, origin), RULE_YOU)).toBeTruthy()
+    })
+  }
 
-    const marked: PromptOrigin[] = [
-      { kind: 'composer' },
-      { kind: 'slack-ping' },
-      { kind: 'plugin', name: 'voice', asUser: true },
-    ]
-    const unmarked: PromptOrigin[] = [
-      { kind: 'task-notification' },
-      { kind: 'plugin', name: 'voice' },
-      { kind: 'peer' },
-    ]
-
-    for (const origin of marked) {
-      const ui = await $.ui.mount({ ...prompt(origin), surface })
-      expect(await ui.find({ type: 'Text', text: RULE_YOU })).toBeTruthy()
-      await ui.unmount()
-    }
-
-    for (const origin of unmarked) {
-      const ui = await $.ui.mount({ ...prompt(origin), surface })
-      expect(await ui.find({ type: 'Text', text: RULE_YOU })).toBeFalsy()
-      await ui.unmount()
-    }
-  })
+  for (const origin of OTHER_ORIGINS) {
+    test(`a prompt from ${JSON.stringify(origin)} is not marked (${surface})`, async ($, on) => {
+      fakeEngine(on, [])
+      expect(await findText(await mountPrompt($, surface, origin), RULE_YOU)).toBeFalsy()
+    })
+  }
 }

@@ -1,36 +1,45 @@
 import { atom, read, update } from 'claude-code'
-import type { Elements, PromptOrigin, Register, RenderElement, RenderSurface, RenderViewport } from 'claude-code'
+import type {
+  Elements,
+  EngineInterface,
+  PromptOrigin,
+  Register,
+  RenderElement,
+  RenderSurface,
+  RenderViewport,
+  TurnStepChunk,
+} from 'claude-code'
 
 import type { ToolUseId } from '../types'
+import { colors } from './shared/colors'
 
 type Marker = { glyph: string; label: string; color: string }
 
-// Theme keys follow the active Claude Code theme (light/dark); a hex like '#5fd7ff' also works.
-const YOU: Marker = { glyph: '▶', label: 'you', color: 'suggestion' }
-const CLAUDE: Marker = { glyph: '✻', label: 'claude', color: 'claude' }
+const YOU: Marker = { glyph: '▶', label: 'you', color: colors.blue }
+const CLAUDE: Marker = { glyph: '✻', label: 'claude', color: colors.pink }
 
-// How many reply-opening tool calls to remember; older rows lose their marker.
 const MAX_OPENERS = 500
+const DEFAULT_COLUMNS = 80
+const MAX_COLUMNS = 160
+const MIN_RULE_LENGTH = 4
+const RIGHT_MARGIN = 2
 
 const awaitingReply = atom({ plugin: 'turn-markers', key: 'awaitingReply' } as const, false)
 const openers = atom({ plugin: 'turn-markers', key: 'openers' } as const, [] as ToolUseId[])
 
-// The person's own words: typed at the terminal, sent over Remote Control or the SDK, pinged
-// from Slack, or submitted by a plugin as the person (voice input). Not task notifications,
-// other agents' messages, scheduled prompts or channels.
 const PERSON_KINDS = new Set(['composer', 'bridge', 'sdk', 'slack-ping'])
 const isPerson = (origin: PromptOrigin) =>
   PERSON_KINDS.has(origin.kind) || (origin.kind === 'plugin' && origin.asUser === true)
 
-// The label and a rule out toward the right edge. The viewport can be wider than the
-// transcript column (a docked pane, a row gutter), so the Text truncates rather than wraps.
 const rule = (marker: Marker, viewport: RenderViewport | undefined) => {
   const head = `${marker.glyph} ${marker.label} `
-  const width = Math.max(4, Math.min(viewport?.columns ?? 80, 160) - head.length - 2)
-  return head + '─'.repeat(width)
+  const columns = Math.min(viewport?.columns ?? DEFAULT_COLUMNS, MAX_COLUMNS)
+  const length = Math.max(MIN_RULE_LENGTH, columns - head.length - RIGHT_MARGIN)
+  return head + '─'.repeat(length)
 }
 
-// The engine's own row with the marker's rule above it.
+// The viewport can be wider than the transcript column (a docked pane, a row gutter),
+// so the rule truncates rather than wrapping onto a second line.
 const withRule = <S extends RenderSurface>(
   { Box, Text }: Elements[S],
   marker: Marker,
@@ -45,62 +54,72 @@ const withRule = <S extends RenderSurface>(
   </Box>
 )
 
+const opensReply = (chunk: TurnStepChunk) =>
+  chunk.kind === 'tool' || (chunk.kind === 'text' && chunk.text.trim() !== '')
+
+const rememberOpener = ($: EngineInterface, id: ToolUseId) =>
+  update($, openers, ids => [...ids, id].slice(-MAX_OPENERS))
+
+const isAwaitingMainReply = async ($: EngineInterface, agentId: string | undefined) =>
+  agentId === undefined && (await read($, awaitingReply))
+
+// A reply opens with text or a tool call. The AssistantMessage hook marks text;
+// an opening tool call is remembered here so the ToolUse hook can mark its row.
+async function* watchForOpener($: EngineInterface, stream: AsyncIterable<TurnStepChunk>) {
+  let isOpened = false
+
+  for await (const chunk of stream) {
+    if (!isOpened && opensReply(chunk)) {
+      isOpened = true
+      if (chunk.kind === 'tool') await rememberOpener($, chunk.id)
+      await update($, awaitingReply, () => false)
+    }
+
+    yield chunk
+  }
+}
+
 export const register: Register = on => {
   on('prompt.submit', async ($, e, next) => {
     const result = await next(e)
+    const isAccepted = !('drop' in result)
 
-    if (!('drop' in result) && e.origin && isPerson(e.origin)) {
+    if (isAccepted && e.origin && isPerson(e.origin)) {
       await update($, awaitingReply, () => true)
     }
 
     return result
   })
 
-  // Find what opens the reply: if a tool call streams in before any text, remember its id so
-  // its row carries the claude marker. Text first is marked by the AssistantMessage hook.
   on('turn.step', async function* ($, e, next) {
-    if (e.agentId !== undefined || !(await read($, awaitingReply))) {
-      return yield* next(e)
+    if (await isAwaitingMainReply($, e.agentId)) {
+      return yield* watchForOpener($, next(e))
     }
 
-    let isDecided = false
-
-    for await (const chunk of next(e)) {
-      if (!isDecided && chunk.kind === 'tool') {
-        isDecided = true
-        const id = chunk.id
-        await update($, openers, ids => [...ids, id].slice(-MAX_OPENERS))
-        await update($, awaitingReply, () => false)
-      } else if (!isDecided && chunk.kind === 'text' && chunk.text.trim() !== '') {
-        isDecided = true
-        await update($, awaitingReply, () => false)
-      }
-
-      yield chunk
-    }
+    return yield* next(e)
   })
 
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
-    if (!isPerson(e.props.origin)) {
-      return next(e)
+    if (isPerson(e.props.origin)) {
+      return withRule($.ui.resolve(e), YOU, e.viewport, await next(e))
     }
 
-    return withRule($.ui.resolve(e), YOU, e.viewport, await next(e))
+    return next(e)
   })
 
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
-    if (!e.props.isFirstOfReply || e.props.isSummary) {
-      return next(e)
+    if (e.props.isFirstOfReply && !e.props.isSummary) {
+      return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
     }
 
-    return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
+    return next(e)
   })
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
-    if (!(await read($, openers)).includes(e.props.tool_use_id)) {
-      return next(e)
+    if ((await read($, openers)).includes(e.props.tool_use_id)) {
+      return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
     }
 
-    return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
+    return next(e)
   })
 }
