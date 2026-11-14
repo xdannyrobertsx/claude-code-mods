@@ -37,6 +37,18 @@ const findScratchpad = async ($: EngineInterface): Promise<string | null> => {
         if (await $.fs.exists(path)) return path
       }
     }
+
+    // The slug is keyed to the folder the session *started* in, which root()/cwd() stop
+    // reporting after a directory change (or once a spare folder is deleted). The session id
+    // is unique, so fall back to looking for it under every project folder.
+    for (const userDir of userDirs) {
+      const projectDirs = await $.fs.list(`${tmp}/${userDir.name}`).catch(() => [])
+      for (const projectDir of projectDirs) {
+        if (projectDir.kind !== 'dir') continue
+        const path = `${tmp}/${userDir.name}/${projectDir.name}/${id}/scratchpad`
+        if (await $.fs.exists(path)) return path
+      }
+    }
   }
 
   return null

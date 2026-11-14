@@ -37,7 +37,7 @@ LICENSE                           0bsd
 
 installing a mod copies only its folder, so the folder holds everything the mod needs. it can't import anything outside itself: see [shared code](shared-code.md).
 
-- `.claude-plugin/plugin.json`: `name`, `version`, `description`, `author` (`{ "name": "Danny Roberts" }`), `license`, and `types` (`"./types/index.d.ts"`) when the mod keeps state.
+- `.claude-plugin/plugin.json`: `name`, `version`, `description`, `author` (`{ "name": "danny roberts" }`), `license`, and `types` (`"./types/index.d.ts"`) when the mod keeps state.
 - `.claude-plugin/icon.png`: the listing icon, see [versions and publishing](versions-and-publishing.md).
 - `hooks/hooks.json`: names the hooks module: `{ "modules": ["./register.tsx"] }`.
 - `hooks/register.tsx`: the hooks module.
