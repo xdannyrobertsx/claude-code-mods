@@ -1,6 +1,6 @@
 {
   "name": "scratchpad",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A toggleable sidebar showing this session's scratchpad as a live directory tree",
   "author": { "name": "Danny Roberts" },
   "license": "0BSD",
