@@ -27,7 +27,8 @@ at the prompt of a claude code session:
 /plugin install <mod> --marketplace xdannyrobertsx/claude-code-mods
 ```
 
-answer `y` to add the marketplace, then pick a scope.[^github]
+answer `y` to add the marketplace, then pick a
+scope.[^github]
 
 ## from a local checkout
 
@@ -35,7 +36,8 @@ answer `y` to add the marketplace, then pick a scope.[^github]
 /plugin install <name> --marketplace /path/to/this/repo
 ```
 
-the repo owner has installed this way and it works.[^checkout]
+the repo owner has installed this way and it
+works.[^checkout]
 
 ## live, while working on a mod
 
@@ -43,10 +45,21 @@ the repo owner has installed this way and it works.[^checkout]
 claude --plugin-dir mods/<name>
 ```
 
-starts a session with the mod loaded. it reloads whenever the mod's files change, so edits show up without a restart.[^plugin-dir] loading a mod this way also writes its claude code types into `mods/<name>/.claude-plugin/types/`.
+starts a session with the mod loaded. it reloads
+whenever the mod's files change, so edits show up
+without a restart.[^plugin-dir] loading a mod this
+way also writes its claude code types into
+`mods/<name>/.claude-plugin/types/`.
 
-if a hook seems not to fire, check [mod api traps](mod-api-traps.md) first: some events never reach a mod.
+if a hook seems not to fire, check
+[mod api traps](mod-api-traps.md) first: some
+events never reach a mod.
 
-[^github]: github: the repo owner installed a mod this way on 2026-11-13.
-[^checkout]: checkout: the repo owner says it works; they didn't say when they checked.
-[^plugin-dir]: plugin-dir: the repo owner ran scratchpad this way and saw edits reload.
+[^github]: github: the repo owner installed a mod
+    this way on 2026-11-13.
+
+[^checkout]: checkout: the repo owner says it
+    works; they didn't say when they checked.
+
+[^plugin-dir]: plugin-dir: the repo owner ran
+    scratchpad this way and saw edits reload.

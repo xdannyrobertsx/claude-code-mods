@@ -1,10 +1,11 @@
 # scratchpad
 
-hai! ✦ claude keeps a lil scratchpad folder for
+claude keeps a scratchpad folder for
 each session, tucked away in `/tmp` where u never
-see it. this mod adds a button above the prompt
+see it.
+this mod adds a button above the prompt
 that opens a sidebar showing that folder as a live
-tree, so u can peek anytime hehe
+tree, so u can peek anytime.
 
 ```
 📁 Scratchpad                    ┌ Scratchpad ──────────┐
@@ -28,8 +29,7 @@ tree, so u can peek anytime hehe
 
 no scratchpad in ur session, like in a `claude -p`
 run? the sidebar just says
-`Couldn't find this session's scratchpad.` and
-that's okie
+`Couldn't find this session's scratchpad.`
 
 ## install
 
@@ -55,10 +55,10 @@ it's all constants at the top of
 
 ## how it finds the scratchpad
 
-ok so, claude code tells its own hooks where the
+claude code tells its own hooks where the
 scratchpad lives (`scratchpad_dir`), but a mod
-can't read it ;_; the mod api doesn't hand over
-the path, and claude code's security guard skips a
+can't read it..
+the mod api doesn't hand over the path, and claude code's security guard skips a
 mod's classic hooks, which are the only events
 that carry it. so the mod rebuilds the path from
 claude code's folder layout and looks for it under
@@ -76,8 +76,7 @@ the mod looks for the session id under every
 project folder instead.
 
 if a claude code update ever moves the scratchpad,
-the sidebar will say it couldn't find one. lmk if
-that happens plz, tysm!
+the sidebar will say it couldn't find one..
 
 ## develop
 
