@@ -23,7 +23,8 @@ const TREE: Record<string, FsEntry[]> = {
   [`${ROOT}/out`]: [entry('a.txt', 'file')],
 }
 
-const fakeHost = (on: On, { hasScratchpad = true } = {}) => {
+const fakeHost = (on: On, { hasScratchpad = true, startedIn = '-proj' } = {}) => {
+  const scratchpad = `/private/tmp/claude-502/${startedIn}/sess-1/scratchpad`
   const host = {
     isUp: false,
     openedColumns: undefined as number | undefined,
@@ -34,8 +35,13 @@ const fakeHost = (on: On, { hasScratchpad = true } = {}) => {
   on('session.id', () => ({ value: 'sess-1' }))
   on('session.root', () => ({ value: '/proj' }))
   on('session.cwd', () => ({ value: '/proj' }))
-  on('fs.list', ($, e) => ({ value: TREE[e.path] ?? [] }))
-  on('fs.exists', ($, e) => ({ value: hasScratchpad && e.path === ROOT }))
+  on('fs.list', ($, e) => ({
+    value:
+      e.path === '/private/tmp/claude-502'
+        ? [entry(startedIn, 'dir')]
+        : (TREE[e.path.replace(scratchpad, ROOT)] ?? []),
+  }))
+  on('fs.exists', ($, e) => ({ value: hasScratchpad && e.path === scratchpad }))
   on('ui.panes', () => ({
     value: host.isUp
       ? [{ id: 'scratchpad', title: 'Scratchpad', isShown: true, isFocused: false, isPlaced: true }]
@@ -210,6 +216,13 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const pane = await openPane($, surface)
     await pane.press({ key: `${ROOT}/notes.md` })
     expect(host.toasts).toEqual(['Copied path of notes.md'])
+  })
+
+  test(`it finds a scratchpad filed under the folder the session started in (${surface})`, async ($, on) => {
+    fakeHost(on, { startedIn: '-somewhere-else' })
+    const pane = await openPane($, surface)
+    const started = '/private/tmp/claude-502/-somewhere-else/sess-1/scratchpad'
+    expect(await pane.find({ key: `${started}/out/a.txt` })).toBeDefined()
   })
 
   test(`a session without a scratchpad says it couldn't find one (${surface})`, async ($, on) => {

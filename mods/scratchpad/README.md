@@ -68,6 +68,13 @@ claude code's folder layout and looks for it under
 <tmp>/claude-<uid>/<project path, non-alphanumerics as dashes>/<session id>/scratchpad
 ```
 
+the project folder in that path is the one the
+session *started* in, which can differ from the
+current folder (say u changed directory, or a
+spare folder got deleted). if the guess misses,
+the mod looks for the session id under every
+project folder instead.
+
 if a claude code update ever moves the scratchpad,
 the sidebar will say it couldn't find one. lmk if
 that happens plz, tysm!
