@@ -6,23 +6,20 @@ import type {
   Register,
   RenderElement,
   RenderSurface,
-  RenderViewport,
   TurnStepChunk,
 } from 'claude-code'
 
 import type { ToolUseId } from '../types'
 import { colors } from './shared/colors'
 
-type Marker = { glyph: string; label: string; color: string }
+type Marker = { glyph: string; label: string; fill: string }
 
-const YOU: Marker = { glyph: '▶', label: 'you', color: colors.blue }
-const CLAUDE: Marker = { glyph: '✻', label: 'claude', color: colors.pink }
+const YOU: Marker = { glyph: '▶', label: 'you', fill: colors.blue }
+const CLAUDE: Marker = { glyph: '✻', label: 'claude', fill: colors.pink }
+const LABEL_TEXT_COLOR = colors.nearBlack
+const BLANK_LINES_ABOVE_LABEL = 1
 
 const MAX_OPENERS = 500
-const DEFAULT_COLUMNS = 80
-const MAX_COLUMNS = 160
-const MIN_RULE_LENGTH = 4
-const RIGHT_MARGIN = 2
 
 const awaitingReply = atom({ plugin: 'turn-markers', key: 'awaitingReply' } as const, false)
 const openers = atom({ plugin: 'turn-markers', key: 'openers' } as const, [] as ToolUseId[])
@@ -31,25 +28,17 @@ const PERSON_KINDS = new Set(['composer', 'bridge', 'sdk', 'slack-ping'])
 const isPerson = (origin: PromptOrigin) =>
   PERSON_KINDS.has(origin.kind) || (origin.kind === 'plugin' && origin.asUser === true)
 
-const rule = (marker: Marker, viewport: RenderViewport | undefined) => {
-  const head = `${marker.glyph} ${marker.label} `
-  const columns = Math.min(viewport?.columns ?? DEFAULT_COLUMNS, MAX_COLUMNS)
-  const length = Math.max(MIN_RULE_LENGTH, columns - head.length - RIGHT_MARGIN)
-  return head + '─'.repeat(length)
-}
+const labelText = (marker: Marker) => ` ${marker.glyph} ${marker.label} `
 
-// The viewport can be wider than the transcript column (a docked pane, a row gutter),
-// so the rule truncates rather than wrapping onto a second line.
-const withRule = <S extends RenderSurface>(
-  { Box, Text }: Elements[S],
-  marker: Marker,
-  viewport: RenderViewport | undefined,
-  row: RenderElement,
-) => (
+// The label gets its own Box so a surface that stretches column children
+// can't spread the fill across the whole row.
+const withLabel = <S extends RenderSurface>({ Box, Text }: Elements[S], marker: Marker, row: RenderElement) => (
   <Box flexDirection="column">
-    <Text color={marker.color} bold wrap="truncate-end">
-      {rule(marker, viewport)}
-    </Text>
+    <Box key="label" marginTop={BLANK_LINES_ABOVE_LABEL}>
+      <Text color={LABEL_TEXT_COLOR} backgroundColor={marker.fill} bold>
+        {labelText(marker)}
+      </Text>
+    </Box>
     {row}
   </Box>
 )
@@ -101,7 +90,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'UserMessage' }, async ($, e, next) => {
     if (isPerson(e.props.origin)) {
-      return withRule($.ui.resolve(e), YOU, e.viewport, await next(e))
+      return withLabel($.ui.resolve(e), YOU, await next(e))
     }
 
     return next(e)
@@ -109,7 +98,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'AssistantMessage' }, async ($, e, next) => {
     if (e.props.isFirstOfReply && !e.props.isSummary) {
-      return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
+      return withLabel($.ui.resolve(e), CLAUDE, await next(e))
     }
 
     return next(e)
@@ -117,7 +106,7 @@ export const register: Register = on => {
 
   on('ui.render', { component: 'ToolUse' }, async ($, e, next) => {
     if ((await read($, openers)).includes(e.props.tool_use_id)) {
-      return withRule($.ui.resolve(e), CLAUDE, e.viewport, await next(e))
+      return withLabel($.ui.resolve(e), CLAUDE, await next(e))
     }
 
     return next(e)

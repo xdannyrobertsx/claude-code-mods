@@ -10,5 +10,5 @@ cover how each one works inside.
   keeps in state, and how it stays current.
 - [turn-markers](turn-markers.md) — how
   turn-markers decides which prompts and replies
-  get a rule, and how it finds a reply's first
+  get a label, and how it finds a reply's first
   row.
