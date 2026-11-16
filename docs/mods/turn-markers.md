@@ -1,17 +1,17 @@
 ---
 type: Reference
 title: turn-markers
-description: how turn-markers decides which prompts and replies get a rule, and how it finds a reply's first row.
+description: how turn-markers decides which prompts and replies get a label, and how it finds a reply's first row.
 tags: [mods, turn-markers]
 sources:
   - id: code
-    resource: mods/turn-markers/hooks/register.tsx · isPerson, watchForOpener, rule, withRule
+    resource: mods/turn-markers/hooks/register.tsx · isPerson, watchForOpener, labelText, withLabel
     title: the hooks module
-    last_modified: 2026-11-13T00:00:00Z
+    last_modified: 2026-11-16T00:00:00Z
   - id: tests
     resource: mods/turn-markers/tests/turn-markers.test.tsx
-    title: the tests (22 pass)
-    last_modified: 2026-11-13T00:00:00Z
+    title: the tests (46 pass)
+    last_modified: 2026-11-16T00:00:00Z
   - id: owner
     resource: the repo owner
     title: subagent replies left unmarked on purpose
@@ -20,7 +20,7 @@ sources:
 
 # turn-markers
 
-draws a colored rule above each of the person's
+draws a colored label above each of the person's
 prompts and above the start of each claude reply.
 what it looks like and how to customize it are in
 `mods/turn-markers/README.md`.
@@ -51,14 +51,14 @@ different hooks mark each:[^code]
    `awaitingReply` clears.
 3. `AssistantMessage` render: a block with
    `isFirstOfReply` that isn't a summary gets the
-   claude rule. this covers replies that open with
+   claude label. this covers replies that open with
    text.
 4. `ToolUse` render: a call whose `tool_use_id` is
-   in `openers` gets the claude rule.
+   in `openers` gets the claude label.
 
 subagents' replies are never marked, by design.[^owner]
 `openers` keeps the newest 500 ids, so a very old
-opening tool call loses its rule.
+opening tool call loses its label.
 
 ## state
 
@@ -66,21 +66,30 @@ per session, in `$.state`: `awaitingReply` (a
 boolean) and `openers` (tool call ids, newest
 last).
 
-## the rule
+## the label
 
-`<glyph> <label>` and then `─` out toward the
-right edge: the viewport's columns (80 if unknown,
-at most 160), less the label and 2, never under 4.[^code]
-the viewport can be wider than the transcript
-column (a docked pane, a row gutter), so the rule
-truncates instead of wrapping onto a second line.
+` <glyph> <name> `, bold, in its own row above the
+marked one, with a blank line above it: a pill
+filled with the marker's color, with `nearBlack`
+text, as wide as its text. a pane narrower
+than the label truncates it rather than wrapping
+the fill onto a second row.[^code] the gap between
+the label and its row is the engine row's own top
+margin, not the mod's.
+it doesn't depend on the viewport. an earlier
+version drew a `─` rule sized from the viewport's
+columns instead, which came up short in a wide
+terminal and ran past the transcript column in
+the desktop app, where columns don't match its
+width.
 
 colors come from the [palette](../palette.md):
-`blue` for you, `pink` for claude.
+`blue` fill for you, `pink` for claude. dark text
+on a fill reads on a light theme too, unlike the
+palette's colors as plain text.
 **Unconfirmed:** that a claude code theme key
-(`suggestion`, `claude`, …) also works as a marker
-color and follows the theme; the README says so,
-but it hasn't been tried.
+(`suggestion`, `claude`, …) also works as a fill
+and follows the theme; it hasn't been tried.
 
 [^code]: code: the symbols named in this doc's
     `code` source.

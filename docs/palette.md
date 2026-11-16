@@ -9,9 +9,9 @@ sources:
     title: the palette
     last_modified: 2026-11-13T00:00:00Z
   - id: markers
-    resource: mods/turn-markers/hooks/register.tsx · YOU, CLAUDE
+    resource: mods/turn-markers/hooks/register.tsx · YOU, CLAUDE, LABEL_TEXT_COLOR
     title: turn-markers' marker colors
-    last_modified: 2026-11-13T00:00:00Z
+    last_modified: 2026-11-16T00:00:00Z
 ---
 
 # palette
@@ -54,8 +54,9 @@ whether the two are swapped.
 
 ## who uses it
 
-- turn-markers: `blue` for your prompts, `pink`
-  for claude's replies.[^markers]
+- turn-markers: `blue` fills your prompts' label,
+  `pink` claude's replies', each with `nearBlack`
+  text.[^markers]
 - scratchpad doesn't use it: its button icon is an
   emoji, which draws in its own colors.
 
@@ -63,4 +64,5 @@ whether the two are swapped.
     table is in `colors`.
 
 [^markers]: markers: `YOU` uses `colors.blue`,
-    `CLAUDE` uses `colors.pink`.
+    `CLAUDE` uses `colors.pink`, and
+    `LABEL_TEXT_COLOR` is `colors.nearBlack`.

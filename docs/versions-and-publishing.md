@@ -7,7 +7,7 @@ sources:
   - id: owner
     resource: the repo owner's decision; github repo visibility
     title: version policy
-    last_modified: 2026-11-14T00:00:00Z
+    last_modified: 2026-11-16T00:00:00Z
   - id: license
     resource: LICENSE; mods/*/.claude-plugin/plugin.json · license
     title: the license
@@ -29,8 +29,8 @@ its `plugin.json` whenever its behaviour changes.[^owner]
 "published" means other people can install the mod
 from this repo's own marketplace
 (`.claude-plugin/marketplace.json`). the repo is
-private, so only its owner can install from it,
-and neither mod is published yet.[^owner] listing a
+public, so every mod listed there is published,
+and every behaviour change gets a bump.[^owner] listing a
 mod in anthropic's plugin directory is a separate,
 later step, and isn't what starts the version
 bumps.
@@ -64,9 +64,10 @@ each mod has its own 512 px icon: flat shapes in
 about 9 kb, to keep installs small.
 
 [^owner]: owner: the repo owner set this policy on
-    2026-11-13 and said what "published" means on
-    2026-11-14; `gh repo view` showed the repo
-    private that day.
+    2026-11-13, said what "published" means on
+    2026-11-14, and confirmed the repo officially
+    public on 2026-11-16, when `gh repo view`
+    showed it public.
 
 [^license]: license: the root `LICENSE` text and
     the `license` field in both mods'
