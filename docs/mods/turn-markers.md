@@ -10,7 +10,7 @@ sources:
     last_modified: 2026-11-16T00:00:00Z
   - id: tests
     resource: mods/turn-markers/tests/turn-markers.test.tsx
-    title: the tests (42 pass)
+    title: the tests (46 pass)
     last_modified: 2026-11-16T00:00:00Z
   - id: owner
     resource: the repo owner
@@ -71,7 +71,9 @@ last).
 ` <glyph> <name> `, bold, in its own row above the
 marked one, with a blank line above it: a pill
 filled with the marker's color, with `nearBlack`
-text, as wide as its text.[^code] the gap between
+text, as wide as its text. a pane narrower
+than the label truncates it rather than wrapping
+the fill onto a second row.[^code] the gap between
 the label and its row is the engine row's own top
 margin, not the mod's.
 it doesn't depend on the viewport. an earlier

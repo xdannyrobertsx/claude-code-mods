@@ -173,10 +173,22 @@ for (const surface of ['terminal', 'desktop'] as const) {
     expect(label?.props.backgroundColor).toBe(colors.pink)
   })
 
-  test(`a label's text is near black on its fill (${surface})`, async ($, on) => {
+  test(`a prompt's label text is near black on its fill (${surface})`, async ($, on) => {
     fakeEngine(on, [])
     const label = await findText(await mountPrompt($, surface, PERSON), LABEL_YOU)
     expect(label?.props.color).toBe(colors.nearBlack)
+  })
+
+  test(`a reply's label text is near black on its fill (${surface})`, async ($, on) => {
+    fakeEngine(on, [])
+    const label = await findText(await mountReplyMessage($, surface, FIRST_MESSAGE), LABEL_CLAUDE)
+    expect(label?.props.color).toBe(colors.nearBlack)
+  })
+
+  test(`a label never wraps onto a second row (${surface})`, async ($, on) => {
+    fakeEngine(on, [])
+    const label = await findText(await mountPrompt($, surface, PERSON), LABEL_YOU)
+    expect(label?.props.wrap).toBe('truncate-end')
   })
 
   test(`a prompt's label is its glyph and name, padded by a space on each side (${surface})`, async ($, on) => {

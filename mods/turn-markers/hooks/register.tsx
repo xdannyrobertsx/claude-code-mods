@@ -12,10 +12,10 @@ import type {
 import type { ToolUseId } from '../types'
 import { colors } from './shared/colors'
 
-type Marker = { glyph: string; label: string; fill: string }
+type Marker = { glyph: string; name: string; fill: string }
 
-const YOU: Marker = { glyph: '▶', label: 'you', fill: colors.blue }
-const CLAUDE: Marker = { glyph: '✻', label: 'claude', fill: colors.pink }
+const YOU: Marker = { glyph: '▶', name: 'you', fill: colors.blue }
+const CLAUDE: Marker = { glyph: '✻', name: 'claude', fill: colors.pink }
 const LABEL_TEXT_COLOR = colors.nearBlack
 const BLANK_LINES_ABOVE_LABEL = 1
 
@@ -28,14 +28,18 @@ const PERSON_KINDS = new Set(['composer', 'bridge', 'sdk', 'slack-ping'])
 const isPerson = (origin: PromptOrigin) =>
   PERSON_KINDS.has(origin.kind) || (origin.kind === 'plugin' && origin.asUser === true)
 
-const labelText = (marker: Marker) => ` ${marker.glyph} ${marker.label} `
+const labelText = (marker: Marker) => ` ${marker.glyph} ${marker.name} `
 
 // The label gets its own Box so a surface that stretches column children
 // can't spread the fill across the whole row.
-const withLabel = <S extends RenderSurface>({ Box, Text }: Elements[S], marker: Marker, row: RenderElement) => (
+const withLabel = <S extends RenderSurface>(
+  { Box, Text }: Elements[S],
+  marker: Marker,
+  row: RenderElement,
+) => (
   <Box flexDirection="column">
     <Box key="label" marginTop={BLANK_LINES_ABOVE_LABEL}>
-      <Text color={LABEL_TEXT_COLOR} backgroundColor={marker.fill} bold>
+      <Text color={LABEL_TEXT_COLOR} backgroundColor={marker.fill} bold wrap="truncate-end">
         {labelText(marker)}
       </Text>
     </Box>
