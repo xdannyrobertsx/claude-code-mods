@@ -30,6 +30,7 @@ mods/<name>/                      one mod, a self-contained plugin folder
 shared/                           code more than one mod uses
 scripts/sync-shared.ts            copies shared/ into the mods that use it
 .github/workflows/                ci: the shared-code check
+.github/CODEOWNERS                every pr asks the owner for review
 docs/                             this bundle
 AGENTS.md, CLAUDE.md              instructions for agents working here
 LICENSE                           0bsd
