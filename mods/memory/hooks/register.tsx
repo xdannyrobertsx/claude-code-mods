@@ -8,6 +8,9 @@ const REFRESH_MS = 2000
 const WIDTH_SHARE = 0.25
 const ICON = '🧠'
 const INDEX_FILE = 'MEMORY.md'
+const INDEX_DESCRIPTION = 'the index'
+const GIT_ENTRY = '.git'
+const WORKTREE_GITDIR = /^gitdir:[ \t]*(\/.*)\/\.git\/worktrees\/[^/\n]+$/m
 const AUTO_MEMORY_TYPE = 'AutoMem'
 const DESCRIPTION_INDENT = '  '
 
@@ -36,14 +39,27 @@ const configDir = async ($: EngineInterface): Promise<string | null> => {
   return home === undefined ? null : `${home}/.claude`
 }
 
+// Claude Code keys memory to the repository's main checkout, so every subfolder and
+// worktree of one repository shares a memory folder.
+const mainCheckoutOf = async ($: EngineInterface, dir: string): Promise<string | null> => {
+  for (let current = dir; current !== ''; current = parentOf(current)) {
+    const worktreeLink = await $.fs.read(`${current}/${GIT_ENTRY}`).catch(() => null)
+    if (worktreeLink !== null) return WORKTREE_GITDIR.exec(worktreeLink)?.[1] ?? current
+    if (await $.fs.exists(`${current}/${GIT_ENTRY}`)) return current
+  }
+
+  return null
+}
+
 // Before the engine has loaded any memory, rebuild its default layout:
-// <config dir>/projects/<project path, non-alphanumerics as dashes>/memory
+// <config dir>/projects/<main checkout path, non-alphanumerics as dashes>/memory
 const defaultMemoryDir = async ($: EngineInterface): Promise<string | null> => {
   const config = await configDir($)
   if (config === null) return null
 
   const [projectRoot, cwd] = await Promise.all([$.session.root(), $.session.cwd()])
-  for (const slug of new Set([projectRoot, cwd].map(toProjectSlug))) {
+  const projectDirs = [await mainCheckoutOf($, projectRoot), projectRoot, cwd].filter(dir => dir !== null)
+  for (const slug of new Set(projectDirs.map(toProjectSlug))) {
     const path = `${config}/projects/${slug}/memory`
     if (await $.fs.exists(path)) return path
   }
@@ -64,14 +80,15 @@ const locateRoot = async ($: EngineInterface) => {
 
 const frontmatterField = (text: string, key: string) => {
   const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1]
-  const value = frontmatter && new RegExp(`^${key}:[ \\t]*(.+)$`, 'm').exec(frontmatter)?.[1]?.trim()
+  const value = frontmatter && new RegExp(`^${key}:[ \\t]*(["']?)(.*?)\\1[ \\t\\r]*$`, 'm').exec(frontmatter)?.[2]
   return value || null
 }
 
 const readMemory = async ($: EngineInterface, path: string, fileName: string): Promise<Memory | null> => {
+  if (fileName === INDEX_FILE) return { path, name: INDEX_FILE, description: INDEX_DESCRIPTION }
+
   const text = await $.fs.read(path).catch(() => null)
   if (text === null) return null
-  if (fileName === INDEX_FILE) return { path, name: INDEX_FILE, description: 'the index' }
 
   return {
     path,

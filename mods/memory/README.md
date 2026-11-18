@@ -58,10 +58,12 @@ that's the exact folder, even a custom one.
 
 before that, the mod rebuilds the default path
 from `CLAUDE_CONFIG_DIR` (or `~/.claude`) and the
-project folder:
+repository's main checkout (or the project folder,
+outside git), so a subfolder or a worktree finds
+the same memories:
 
 ```
-<config dir>/projects/<project path, non-alphanumerics as dashes>/memory
+<config dir>/projects/<main checkout path, non-alphanumerics as dashes>/memory
 ```
 
 ## develop

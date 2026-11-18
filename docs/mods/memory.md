@@ -1,16 +1,16 @@
 ---
 type: Reference
 title: memory
-description: how the memory sidebar finds the project's memory folder, what it keeps in state, and how it stays current.
+description: how the memory sidebar finds the project's memory folder and reads each memory's name and description.
 tags: [mods, memory]
 sources:
   - id: code
-    resource: mods/memory/hooks/register.tsx · loadedMemoryDir, defaultMemoryDir, readMemory, refresh
+    resource: mods/memory/hooks/register.tsx · loadedMemoryDir, mainCheckoutOf, defaultMemoryDir, readMemory, refresh
     title: the hooks module
     last_modified: 2026-11-15T00:00:00Z
   - id: tests
     resource: mods/memory/tests/memory.test.ts
-    title: the tests (20 pass)
+    title: the tests (28 pass)
     last_modified: 2026-11-15T00:00:00Z
 ---
 
@@ -38,9 +38,15 @@ two sources, in order:[^code]
 2. `defaultMemoryDir`: rebuilds the default
    `<config dir>/projects/<slug>/memory`, the
    config dir being `CLAUDE_CONFIG_DIR` or
-   `$HOME/.claude`, the slug the session's root or
-   cwd with non-alphanumerics as dashes. the first
-   that exists wins.
+   `$HOME/.claude`, the slug a project folder with
+   non-alphanumerics as dashes. `mainCheckoutOf`
+   finds the folder: it walks up from the session's
+   root to the first `.git`, and a worktree's `.git`
+   file points it at the main checkout, so
+   subfolders and worktrees share one memory
+   folder, as claude code keys it. the session's
+   root, then its cwd, are tried after it. the
+   first that exists wins.
 
 the folder found is kept in `memory.root` and not
 looked up again. until one is found, each refresh
@@ -52,14 +58,18 @@ without reopening the pane.
 `readMemory` reads each `.md` file in the folder
 (not subfolders). `MEMORY.md` is listed first as
 "the index". other files take `name` and
-`description` from their frontmatter, falling back
+`description` from their frontmatter, with one
+pair of surrounding quotes taken off, falling back
 to the file name and no description.[^code]
 
 ## not yet checked live
 
 the `AutoMem` type label and the breakdown's
 `memoryFiles` come from the api types; the tests
-fake them.[^tests] check them in a live session
+fake them.[^tests] so does keying memory to the
+main checkout, which is how claude code is
+understood to work but hasn't been seen in a
+session. check them in a live session
 (see
 [installing and trying mods](../installing-and-trying-mods.md))
 before relying on them.
