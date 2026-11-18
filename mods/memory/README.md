@@ -22,7 +22,7 @@ so u can see what claude remembers.
 - `MEMORY.md` goes first, then each memory by its
   frontmatter `name` (or its file name), with its
   `description` dim underneath
-- press a memory to copy its file's full path ^_^
+- press a memory to copy its file's full path
 - while the sidebar's open, the list refreshes
   every two seconds, so a memory claude writes
   shows up right away
