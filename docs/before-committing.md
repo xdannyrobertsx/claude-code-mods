@@ -5,9 +5,9 @@ description: the checks to run before committing a change to a mod or to shared 
 tags: [checks, ci, testing]
 sources:
   - id: run
-    resource: the commands below, run on both mods
+    resource: the commands below, run on every mod
     title: pre-commit checks
-    last_modified: 2026-11-13T00:00:00Z
+    last_modified: 2026-11-17T00:00:00Z
   - id: ruleset
     resource: github · repo rulesets (`main`) and actions fork pr approval policy
     title: the main branch ruleset
@@ -17,7 +17,7 @@ sources:
 # before committing
 
 run these from the repo root. every one passed on
-both mods when this was written.[^run]
+every mod when this was written.[^run]
 
 1. `node scripts/sync-shared.ts --check`: every
    mod's copy of `shared/` is current. ci runs
@@ -63,5 +63,5 @@ approval before it runs.[^ruleset]
     actions settings, read with `gh api` on
     2026-11-16.
 
-[^run]: run: all four steps run on scratchpad and
-    turn-markers, all green.
+[^run]: run: all four steps run on memory,
+    scratchpad and turn-markers, all green.

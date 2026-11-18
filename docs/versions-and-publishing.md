@@ -11,7 +11,7 @@ sources:
   - id: license
     resource: LICENSE; mods/*/.claude-plugin/plugin.json · license
     title: the license
-    last_modified: 2026-11-13T00:00:00Z
+    last_modified: 2026-11-17T00:00:00Z
   - id: validate
     resource: claude plugin validate, plugin directory checks (claude code 2.1.325)
     title: plugin directory checks
@@ -70,7 +70,7 @@ about 9 kb, to keep installs small.
     showed it public.
 
 [^license]: license: the root `LICENSE` text and
-    the `license` field in both mods'
+    the `license` field in every mod's
     `plugin.json`.
 
 [^validate]: validate, as the validator described

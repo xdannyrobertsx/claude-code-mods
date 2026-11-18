@@ -1,0 +1,8 @@
+{
+  "name": "memory",
+  "version": "0.1.0",
+  "description": "A toggleable sidebar listing this project's Claude memories with their descriptions",
+  "author": { "name": "danny roberts" },
+  "license": "0BSD",
+  "types": "./types/index.d.ts"
+}

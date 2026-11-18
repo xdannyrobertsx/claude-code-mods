@@ -5,8 +5,8 @@ description: the steps to create a new mod and list it in the marketplace.
 tags: [mods, setup]
 sources:
   - id: layout
-    resource: mods/scratchpad, mods/turn-markers
-    title: the two existing mods
+    resource: mods/memory, mods/scratchpad, mods/turn-markers
+    title: the existing mods
     last_modified: 2026-11-13T00:00:00Z
   - id: marketplace
     resource: .claude-plugin/marketplace.json · plugins
@@ -18,11 +18,12 @@ sources:
 
 use the `plugin-authoring` skill for the mod api
 itself; this is how a mod fits into this repo. the
-two existing mods are worked examples:
+existing mods are worked examples:
 
 - a row or button above the prompt, and a sidebar
   pane: [scratchpad](mods/scratchpad.md)
-  (`ui.render` on `AbovePrompt` and `Pane`).
+  (`ui.render` on `AbovePrompt` and `Pane`);
+  [memory](mods/memory.md) is built the same way.
 - marks on transcript rows, and reacting to
   prompts and the streamed reply:
   [turn-markers](mods/turn-markers.md)
@@ -56,8 +57,8 @@ two existing mods are worked examples:
    [versions and publishing](versions-and-publishing.md)).
 6. run [the checks](before-committing.md).
 
-[^layout]: layout: both existing mods have exactly
-    these files.
+[^layout]: layout: every existing mod has these
+    files.
 
 [^marketplace]: marketplace: each mod's entry in
     `plugins` has this shape.
