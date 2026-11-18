@@ -21,7 +21,7 @@ const isOpen = atom({ plugin: 'memory', key: 'isOpen' } as const, false)
 const toProjectSlug = (dir: string) => dir.replace(/[^a-zA-Z0-9]/g, '-')
 const parentOf = (path: string) => path.slice(0, path.lastIndexOf('/'))
 
-// The engine knows the exact folder (it honours a custom memory directory), but only
+// The engine knows the exact folder (it honors a custom memory directory), but only
 // reports it once MEMORY.md exists and is loaded into the context.
 const loadedMemoryDir = async ($: EngineInterface): Promise<string | null> => {
   const usage = await $.session.usage({ breakdown: 'summary' }).catch(() => null)
