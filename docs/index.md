@@ -27,7 +27,8 @@ rest.
   or run one live while you work on it.
 - [before committing](before-committing.md) — the
   checks to run before committing a change to a
-  mod or to shared code.
+  mod or to shared code, and how a change gets
+  onto main.
 - [versions and publishing](versions-and-publishing.md)
   — the version policy, the license, and what a
   mod's listing icon must be.

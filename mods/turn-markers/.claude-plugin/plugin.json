@@ -1,7 +1,7 @@
 {
   "name": "turn-markers",
-  "version": "0.1.0",
-  "description": "Colored, labeled rules above your prompts and Claude's replies so they're easy to find when scrolling past verbose tool output.",
+  "version": "0.2.0",
+  "description": "Colored labels above your prompts and Claude's replies so they're easy to find when scrolling past verbose tool output.",
   "author": {
     "name": "danny roberts"
   },
