@@ -5,12 +5,12 @@ description: how the scratchpad sidebar finds the session's scratchpad, what it 
 tags: [mods, scratchpad]
 sources:
   - id: code
-    resource: mods/scratchpad/hooks/register.tsx · findScratchpad, locateRoot, refresh, readNearestFirst, toggleFolder, toggleSidebar
+    resource: mods/scratchpad/hooks/register.tsx · findScratchpad, locateRoot, refresh, readNearestFirst, readFolder, toggleFolder, toggleSidebar
     title: the hooks module
     last_modified: 2026-11-25T00:00:00Z
   - id: tests
     resource: mods/scratchpad/tests/scratchpad.test.ts
-    title: the tests (38 pass)
+    title: the tests (46 pass)
     last_modified: 2026-11-25T00:00:00Z
   - id: live
     resource: claude --plugin-dir mods/scratchpad, claude code 2.1.325
@@ -84,8 +84,17 @@ a folder and the refresh that follows.[^code]
   folder, such as a repo checkout, can only crowd
   out entries deeper than itself, never the files
   beside it.[^code]
+- a folder the budget cut short, or never reached,
+  ends in a dim `…` row, so it doesn't look empty
+  or complete. the row is an `entries` item of
+  kind `leftOut`, with the folder's path plus a
+  trailing `/` as its path, which no real file can
+  have. it isn't pressable and doesn't count
+  toward the 2000.[^code]
 - `entries` is written only if the list changed,
-  so an idle tree isn't redrawn.
+  so an idle tree isn't redrawn, and never if a
+  folder was pressed during the read: that press's
+  own refresh writes instead.[^code]
 - pressing a folder collapses or expands it, then
   refreshes at once: collapsing a huge folder
   frees its share of the budget for the rest of

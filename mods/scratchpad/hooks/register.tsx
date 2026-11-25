@@ -8,6 +8,7 @@ const REFRESH_MS = 2000
 const MAX_ENTRIES = 2000
 const WIDTH_SHARE = 0.2
 const INDENT = '  '
+const LEFT_OUT = '…'
 const FOLDER_CLOSED = '📁'
 const FOLDER_OPEN = '📂'
 const TMP_DIRS = ['/private/tmp', '/tmp']
@@ -76,24 +77,43 @@ const toEntry = (dir: string, child: FsEntry, depth: number): Entry => ({
   depth,
 })
 
+// The trailing slash gives the marker a path no real file can have, yet still inside dir.
+const leftOutMarker = (dir: string, depth: number): Entry => ({
+  path: `${dir}/`,
+  name: LEFT_OUT,
+  kind: 'leftOut',
+  depth,
+})
+
+const isListed = (entry: Entry) => entry.kind !== 'leftOut'
+
 const isExpandedFolder = (entry: Entry, collapsedDirs: string[]) =>
   entry.kind === 'dir' && !collapsedDirs.includes(entry.path)
 
+const readFolder = async ($: EngineInterface, dir: string, depth: number, room: number) => {
+  if (room === 0) return [leftOutMarker(dir, depth)]
+
+  const listing = await listSorted($, dir)
+  const children = listing.slice(0, room).map(child => toEntry(dir, child, depth))
+  return children.length < listing.length ? [...children, leftOutMarker(dir, depth)] : children
+}
+
 // Breadth-first, so MAX_ENTRIES goes to the entries nearest the root: a huge folder can only
 // crowd out entries deeper than itself. Collapsed folders aren't read, which frees their share.
-const readNearestFirst = async ($: EngineInterface, root: string, collapsedDirs: string[]) => {
+// A folder the budget cut short, or never reached, ends in a marker instead of looking empty.
+const readNearestFirst = async ($: EngineInterface, rootDir: string, collapsedDirs: string[]) => {
   const childrenOf = new Map<string, Entry[]>()
   let room = MAX_ENTRIES
-  let level = [root]
+  let level = [rootDir]
 
-  for (let depth = 0; level.length > 0 && room > 0; depth++) {
+  for (let depth = 0; level.length > 0; depth++) {
     const nextLevel: string[] = []
     for (const dir of level) {
-      if (room === 0) break
-      const children = (await listSorted($, dir)).slice(0, room).map(child => toEntry(dir, child, depth))
-      room -= children.length
+      const children = await readFolder($, dir, depth, room)
+      room -= children.filter(isListed).length
       childrenOf.set(dir, children)
-      nextLevel.push(...children.filter(child => isExpandedFolder(child, collapsedDirs)).map(child => child.path))
+      const expandedFolders = children.filter(child => isExpandedFolder(child, collapsedDirs))
+      nextLevel.push(...expandedFolders.map(child => child.path))
     }
     level = nextLevel
   }
@@ -108,7 +128,11 @@ const refresh = async ($: EngineInterface) => {
   const dir = await locateRoot($)
   if (dir === null) return
 
-  const next = inTreeOrder(dir, await readNearestFirst($, dir, await read($, collapsed)))
+  const collapsedDirs = await read($, collapsed)
+  const next = inTreeOrder(dir, await readNearestFirst($, dir, collapsedDirs))
+  // A folder pressed mid-read starts its own refresh, so this stale list must not land after it.
+  if (JSON.stringify(collapsedDirs) !== JSON.stringify(await read($, collapsed))) return
+
   const hasChanged = JSON.stringify(next) !== JSON.stringify(await read($, entries))
   if (hasChanged) await update($, entries, () => next)
 }
@@ -214,6 +238,16 @@ export const register: Register = on => {
       <Box flexDirection="column">
         {visible.length === 0 && <Text dimColor>Empty.</Text>}
         {visible.map(entry => {
+          if (!isListed(entry)) {
+            return (
+              <Box key={entry.path}>
+                <Text dimColor wrap="truncate-end">
+                  {entryLabel(entry, collapsedDirs)}
+                </Text>
+              </Box>
+            )
+          }
+
           const isDir = entry.kind === 'dir'
 
           return (

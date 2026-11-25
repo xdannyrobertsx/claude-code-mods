@@ -25,7 +25,8 @@ const TREE: Record<string, FsEntry[]> = {
   [`${ROOT}/out`]: [entry('a.txt', 'file')],
 }
 
-const manyFiles = (count: number) => Array.from({ length: count }, (_, index) => entry(`file-${index}.txt`, 'file'))
+const manyFiles = (count: number) =>
+  Array.from({ length: count }, (_, index) => entry(`file-${index}.txt`, 'file'))
 
 const HUGE_FOLDER_BESIDE_A_FILE: Record<string, FsEntry[]> = {
   [ROOT]: [entry('huge', 'dir'), entry('notes.md', 'file')],
@@ -37,6 +38,8 @@ const HUGE_FOLDER_BESIDE_A_FOLDER: Record<string, FsEntry[]> = {
   [`${ROOT}/a`]: manyFiles(MAX_ENTRIES),
   [`${ROOT}/b`]: [entry('deep.txt', 'file')],
 }
+
+const leftOutMarkerOf = (dir: string) => `${dir}/`
 
 const fakeHost = (on: On, { hasScratchpad = true, startedIn = '-proj', tree = TREE } = {}) => {
   const scratchpad = `/private/tmp/claude-502/${startedIn}/sess-1/scratchpad`
@@ -231,6 +234,30 @@ for (const surface of ['terminal', 'desktop'] as const) {
     const pane = await openPane($, surface)
     await pane.press({ key: `${ROOT}/a` })
     expect(await pane.find({ key: `${ROOT}/b/deep.txt` })).toBeDefined()
+  })
+
+  test(`a folder cut short by the limit ends in a marker (${surface})`, async ($, on) => {
+    fakeHost(on, { tree: HUGE_FOLDER_BESIDE_A_FILE })
+    const pane = await openPane($, surface)
+    expect(await pane.find({ key: leftOutMarkerOf(`${ROOT}/huge`) })).toBeDefined()
+  })
+
+  test(`a folder the limit never reached shows a marker (${surface})`, async ($, on) => {
+    fakeHost(on, { tree: HUGE_FOLDER_BESIDE_A_FOLDER })
+    const pane = await openPane($, surface)
+    expect(await pane.find({ key: leftOutMarkerOf(`${ROOT}/b`) })).toBeDefined()
+  })
+
+  test(`a fully listed folder has no marker (${surface})`, async ($, on) => {
+    fakeHost(on)
+    const pane = await openPane($, surface)
+    expect(await pane.find({ key: leftOutMarkerOf(`${ROOT}/out`) })).toBeUndefined()
+  })
+
+  test(`the marker is dim (${surface})`, async ($, on) => {
+    fakeHost(on, { tree: HUGE_FOLDER_BESIDE_A_FILE })
+    const pane = await openPane($, surface)
+    expect(await styleOf(pane, /…$/)).toMatchObject({ dimColor: true })
   })
 
   test(`pressing a file copies its full path (${surface})`, async ($, on) => {

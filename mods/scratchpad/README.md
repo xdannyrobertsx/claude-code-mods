@@ -25,6 +25,8 @@ tree, so u can peek anytime.
 - press a folder to collapse or expand it.
   collapsing a huge folder makes room for the
   rest of the tree
+- a dim `…` under a folder means the tree hit its
+  limit there and left the rest out
 - press a file to copy its full path ^_^
 - while the sidebar's open, the tree refreshes
   every two seconds

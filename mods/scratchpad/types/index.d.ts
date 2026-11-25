@@ -1,7 +1,7 @@
 export type Entry = {
   path: string
   name: string
-  kind: 'file' | 'dir' | 'other'
+  kind: 'file' | 'dir' | 'other' | 'leftOut'
   depth: number
 }
 
