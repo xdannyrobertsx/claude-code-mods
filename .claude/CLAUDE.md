@@ -73,6 +73,9 @@ keep its comments.
   times, not only `0`, `[]` or `null` as inputs.
 - test outside the valid inputs: bad input should
   fail loudly, not return a filler.
+- test at and just past every named limit
+  (`MAX_*`, budgets, timeouts): small fixtures
+  never reach what happens at the cap.
 - assert intent, not current behavior: the asserts
   read as a spec.
 - agree on test names and asserts before the
