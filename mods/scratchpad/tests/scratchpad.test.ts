@@ -8,6 +8,7 @@ const TERMINAL_COLUMNS = 254
 const FIFTH_OF_TERMINAL = 51
 const FOLDER_CLOSED = '📁'
 const FOLDER_OPEN = '📂'
+const MAX_ENTRIES = 2000
 
 const entry = (name: string, kind: FsEntry['kind']): FsEntry => ({
   name,
@@ -17,13 +18,27 @@ const entry = (name: string, kind: FsEntry['kind']): FsEntry => ({
   isLink: false,
 })
 
+const TMP_FOLDERS = [entry('claude-502', 'dir'), entry('other', 'dir')]
+
 const TREE: Record<string, FsEntry[]> = {
-  '/private/tmp': [entry('claude-502', 'dir'), entry('other', 'dir')],
   [ROOT]: [entry('.env', 'file'), entry('notes.md', 'file'), entry('out', 'dir')],
   [`${ROOT}/out`]: [entry('a.txt', 'file')],
 }
 
-const fakeHost = (on: On, { hasScratchpad = true, startedIn = '-proj' } = {}) => {
+const manyFiles = (count: number) => Array.from({ length: count }, (_, index) => entry(`file-${index}.txt`, 'file'))
+
+const HUGE_FOLDER_BESIDE_A_FILE: Record<string, FsEntry[]> = {
+  [ROOT]: [entry('huge', 'dir'), entry('notes.md', 'file')],
+  [`${ROOT}/huge`]: manyFiles(MAX_ENTRIES + 1),
+}
+
+const HUGE_FOLDER_BESIDE_A_FOLDER: Record<string, FsEntry[]> = {
+  [ROOT]: [entry('a', 'dir'), entry('b', 'dir')],
+  [`${ROOT}/a`]: manyFiles(MAX_ENTRIES),
+  [`${ROOT}/b`]: [entry('deep.txt', 'file')],
+}
+
+const fakeHost = (on: On, { hasScratchpad = true, startedIn = '-proj', tree = TREE } = {}) => {
   const scratchpad = `/private/tmp/claude-502/${startedIn}/sess-1/scratchpad`
   const host = {
     isUp: false,
@@ -35,12 +50,13 @@ const fakeHost = (on: On, { hasScratchpad = true, startedIn = '-proj' } = {}) =>
   on('session.id', () => ({ value: 'sess-1' }))
   on('session.root', () => ({ value: '/proj' }))
   on('session.cwd', () => ({ value: '/proj' }))
-  on('fs.list', ($, e) => ({
-    value:
-      e.path === '/private/tmp/claude-502'
-        ? [entry(startedIn, 'dir')]
-        : (TREE[e.path.replace(scratchpad, ROOT)] ?? []),
-  }))
+  const listing = (path: string) => {
+    if (path === '/private/tmp') return TMP_FOLDERS
+    if (path === '/private/tmp/claude-502') return [entry(startedIn, 'dir')]
+    return tree[path.replace(scratchpad, ROOT)] ?? []
+  }
+
+  on('fs.list', ($, e) => ({ value: listing(e.path) }))
   on('fs.exists', ($, e) => ({ value: hasScratchpad && e.path === scratchpad }))
   on('ui.panes', () => ({
     value: host.isUp
@@ -202,6 +218,19 @@ for (const surface of ['terminal', 'desktop'] as const) {
     await pane.press({ key: `${ROOT}/out` })
     await pane.press({ key: `${ROOT}/out` })
     expect(await pane.find({ key: `${ROOT}/out/a.txt` })).toBeDefined()
+  })
+
+  test(`a huge folder doesn't hide the files beside it (${surface})`, async ($, on) => {
+    fakeHost(on, { tree: HUGE_FOLDER_BESIDE_A_FILE })
+    const pane = await openPane($, surface)
+    expect(await pane.find({ key: `${ROOT}/notes.md` })).toBeDefined()
+  })
+
+  test(`collapsing a folder makes room for what it crowded out (${surface})`, async ($, on) => {
+    fakeHost(on, { tree: HUGE_FOLDER_BESIDE_A_FOLDER })
+    const pane = await openPane($, surface)
+    await pane.press({ key: `${ROOT}/a` })
+    expect(await pane.find({ key: `${ROOT}/b/deep.txt` })).toBeDefined()
   })
 
   test(`pressing a file copies its full path (${surface})`, async ($, on) => {

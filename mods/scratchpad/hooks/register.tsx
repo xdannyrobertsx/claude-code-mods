@@ -66,23 +66,49 @@ const locateRoot = async ($: EngineInterface) => {
 const foldersFirstThenByName = (a: FsEntry, b: FsEntry) =>
   Number(b.kind === 'dir') - Number(a.kind === 'dir') || a.name.localeCompare(b.name)
 
-const walk = async ($: EngineInterface, dir: string, depth: number, out: Entry[]) => {
-  const children = await $.fs.list(dir).catch(() => [])
+const listSorted = async ($: EngineInterface, dir: string) =>
+  [...(await $.fs.list(dir).catch(() => []))].sort(foldersFirstThenByName)
 
-  for (const child of [...children].sort(foldersFirstThenByName)) {
-    if (out.length >= MAX_ENTRIES) return
-    const path = `${dir}/${child.name}`
-    out.push({ path, name: child.name, kind: child.kind, depth })
-    if (child.kind === 'dir') await walk($, path, depth + 1, out)
+const toEntry = (dir: string, child: FsEntry, depth: number): Entry => ({
+  path: `${dir}/${child.name}`,
+  name: child.name,
+  kind: child.kind,
+  depth,
+})
+
+const isExpandedFolder = (entry: Entry, collapsedDirs: string[]) =>
+  entry.kind === 'dir' && !collapsedDirs.includes(entry.path)
+
+// Breadth-first, so MAX_ENTRIES goes to the entries nearest the root: a huge folder can only
+// crowd out entries deeper than itself. Collapsed folders aren't read, which frees their share.
+const readNearestFirst = async ($: EngineInterface, root: string, collapsedDirs: string[]) => {
+  const childrenOf = new Map<string, Entry[]>()
+  let room = MAX_ENTRIES
+  let level = [root]
+
+  for (let depth = 0; level.length > 0 && room > 0; depth++) {
+    const nextLevel: string[] = []
+    for (const dir of level) {
+      if (room === 0) break
+      const children = (await listSorted($, dir)).slice(0, room).map(child => toEntry(dir, child, depth))
+      room -= children.length
+      childrenOf.set(dir, children)
+      nextLevel.push(...children.filter(child => isExpandedFolder(child, collapsedDirs)).map(child => child.path))
+    }
+    level = nextLevel
   }
+
+  return childrenOf
 }
+
+const inTreeOrder = (dir: string, childrenOf: Map<string, Entry[]>): Entry[] =>
+  (childrenOf.get(dir) ?? []).flatMap(entry => [entry, ...inTreeOrder(entry.path, childrenOf)])
 
 const refresh = async ($: EngineInterface) => {
   const dir = await locateRoot($)
   if (dir === null) return
 
-  const next: Entry[] = []
-  await walk($, dir, 0, next)
+  const next = inTreeOrder(dir, await readNearestFirst($, dir, await read($, collapsed)))
   const hasChanged = JSON.stringify(next) !== JSON.stringify(await read($, entries))
   if (hasChanged) await update($, entries, () => next)
 }
@@ -111,6 +137,11 @@ const toggleCollapsed = ($: EngineInterface, path: string) =>
   update($, collapsed, paths =>
     paths.includes(path) ? paths.filter(one => one !== path) : [...paths, path],
   )
+
+const toggleFolder = async ($: EngineInterface, path: string) => {
+  await toggleCollapsed($, path)
+  await refresh($)
+}
 
 const copyPath = async ($: EngineInterface, entry: Entry, surface: RenderSurface) => {
   const copied = await $.ui.copy({ text: entry.path, surface })
@@ -189,7 +220,7 @@ export const register: Register = on => {
             <Button
               key={entry.path}
               plain
-              onPress={press => (isDir ? toggleCollapsed($, entry.path) : copyPath($, entry, press.surface))}
+              onPress={press => (isDir ? toggleFolder($, entry.path) : copyPath($, entry, press.surface))}
             >
               <Text bold={isDir} dimColor={entry.name.startsWith('.')} wrap="truncate-end">
                 {entryLabel(entry, collapsedDirs)}

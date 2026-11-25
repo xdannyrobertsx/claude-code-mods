@@ -22,7 +22,9 @@ tree, so u can peek anytime.
   its folder opens too (`📂`) while the sidebar's
   up
 - folders go first and are bold, dotfiles are dim
-- press a folder to collapse or expand it
+- press a folder to collapse or expand it.
+  collapsing a huge folder makes room for the
+  rest of the tree
 - press a file to copy its full path ^_^
 - while the sidebar's open, the tree refreshes
   every two seconds
@@ -51,7 +53,9 @@ it's all constants at the top of
 - `REFRESH_MS`: how often the open sidebar rereads
   the folder
 - `MAX_ENTRIES`: the most files and folders the
-  tree will list
+  tree will list. the ones nearest the top of the
+  scratchpad are kept first, so a huge folder
+  never hides the files beside it
 
 ## how it finds the scratchpad
 
